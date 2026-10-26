@@ -424,6 +424,7 @@ class TestQdrantDocumentStoreUnit:
             patch.object(document_store._client, "scroll", side_effect=err),
             patch.object(document_store._client, "get_collection", side_effect=err),
             patch.object(document_store._client, "delete", side_effect=err),
+            patch.object(document_store._client, "create_collection", side_effect=err),
         ):
             with pytest.raises(QdrantStoreError) as exc_info:
                 getattr(document_store, method_name)(*args)
@@ -451,6 +452,19 @@ class TestQdrantDocumentStoreUnit:
         document_store.close()
 
         assert document_store._client is None
+
+    def test_delete_all_documents_index_recreation_recreates_payload_indexes(self):
+        payload_fields_to_index = [{"field_name": "meta.category", "field_schema": rest.PayloadSchemaType.KEYWORD}]
+        document_store = QdrantDocumentStore(location=":memory:", payload_fields_to_index=payload_fields_to_index)
+        document_store._client = MagicMock()
+
+        document_store.delete_all_documents(recreate_index=True)
+
+        document_store._client.create_payload_index.assert_called_once_with(
+            collection_name=document_store.index,
+            field_name="meta.category",
+            field_schema=rest.PayloadSchemaType.KEYWORD,
+        )
 
 
 @pytest.mark.integration
@@ -631,6 +645,25 @@ class TestQdrantDocumentStore(
         # ensure the collection still exists by writing documents again
         document_store.write_documents(docs)
         assert document_store.count_documents() == 5
+
+    @pytest.mark.parametrize(
+        "init_params",
+        [
+            {"use_sparse_embeddings": True},
+            {"use_sparse_embeddings": True, "sparse_idf": True},
+            {"similarity": "dot_product"},
+            {"similarity": "l2"},
+        ],
+    )
+    def test_delete_all_documents_index_recreation_keeps_config(self, init_params):
+        document_store = QdrantDocumentStore(":memory:", embedding_dim=4, progress_bar=False, **init_params)
+        document_store.write_documents([Document(content="doc", embedding=[0.1, 0.2, 0.3, 0.4])])
+        config_before = document_store._client.get_collection(document_store.index).config
+
+        document_store.delete_all_documents(recreate_index=True)
+
+        assert document_store.count_documents() == 0
+        assert document_store._client.get_collection(document_store.index).config == config_before
 
     def test_update_by_filter_preserves_vectors(self, document_store: QdrantDocumentStore):
         """Test that update_by_filter preserves document embeddings."""

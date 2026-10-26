@@ -940,28 +940,16 @@ class QdrantDocumentStore:
 
         try:
             if recreate_index:
-                # get current collection config as json
-                collection_info = self._client.get_collection(collection_name=self.index)
-                info_json = collection_info.model_dump()
-
-                # deal with the Optional use_sparse_embeddings
-                sparse_vectors = info_json["config"]["params"]["sparse_vectors"]
-                use_sparse_embeddings = True if sparse_vectors else False
-
-                # deal with the Optional sparse_idf
-                hnsw_config = info_json["config"]["params"]["vectors"].get("config", {}).get("hnsw_config", None)
-                sparse_idf = True if use_sparse_embeddings and hnsw_config else False
-
-                # recreate collection
+                # the existing collection was validated against these settings in _initialize_client
                 self._set_up_collection(
                     collection_name=self.index,
-                    embedding_dim=info_json["config"]["params"]["vectors"]["size"],
+                    embedding_dim=self.embedding_dim,
                     recreate_collection=True,
-                    similarity=info_json["config"]["params"]["vectors"]["distance"].lower(),
-                    use_sparse_embeddings=use_sparse_embeddings,
-                    sparse_idf=sparse_idf,
-                    on_disk=info_json["config"]["hnsw_config"]["on_disk"],
-                    payload_fields_to_index=info_json["payload_schema"],
+                    similarity=self.similarity,
+                    use_sparse_embeddings=self.use_sparse_embeddings,
+                    sparse_idf=self.sparse_idf,
+                    on_disk=self.on_disk,
+                    payload_fields_to_index=self.payload_fields_to_index,
                 )
 
             else:
@@ -991,28 +979,16 @@ class QdrantDocumentStore:
 
         try:
             if recreate_index:
-                # get current collection config as json
-                collection_info = await self._async_client.get_collection(collection_name=self.index)
-                info_json = collection_info.model_dump()
-
-                # deal with the Optional use_sparse_embeddings
-                sparse_vectors = info_json["config"]["params"]["sparse_vectors"]
-                use_sparse_embeddings = True if sparse_vectors else False
-
-                # deal with the Optional sparse_idf
-                hnsw_config = info_json["config"]["params"]["vectors"].get("config", {}).get("hnsw_config", None)
-                sparse_idf = True if use_sparse_embeddings and hnsw_config else False
-
-                # recreate collection
+                # the existing collection was validated against these settings in _initialize_async_client
                 await self._set_up_collection_async(
                     collection_name=self.index,
-                    embedding_dim=info_json["config"]["params"]["vectors"]["size"],
+                    embedding_dim=self.embedding_dim,
                     recreate_collection=True,
-                    similarity=info_json["config"]["params"]["vectors"]["distance"].lower(),
-                    use_sparse_embeddings=use_sparse_embeddings,
-                    sparse_idf=sparse_idf,
-                    on_disk=info_json["config"]["hnsw_config"]["on_disk"],
-                    payload_fields_to_index=info_json["payload_schema"],
+                    similarity=self.similarity,
+                    use_sparse_embeddings=self.use_sparse_embeddings,
+                    sparse_idf=self.sparse_idf,
+                    on_disk=self.on_disk,
+                    payload_fields_to_index=self.payload_fields_to_index,
                 )
 
             else:

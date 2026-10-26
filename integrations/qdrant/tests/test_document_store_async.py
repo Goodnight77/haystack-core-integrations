@@ -179,6 +179,7 @@ class TestQdrantDocumentStoreAsyncUnit:
             patch.object(document_store._async_client, "scroll", side_effect=err),
             patch.object(document_store._async_client, "get_collection", side_effect=err),
             patch.object(document_store._async_client, "delete", side_effect=err),
+            patch.object(document_store._async_client, "create_collection", side_effect=err),
         ):
             with pytest.raises(QdrantStoreError) as exc_info:
                 await getattr(document_store, method_name)(*args)
@@ -256,6 +257,26 @@ class TestQdrantDocumentStoreAsync(
         assert await document_store.write_documents_async(docs) == 1
         with pytest.raises(DuplicateDocumentError):
             await document_store.write_documents_async(docs, DuplicatePolicy.FAIL)
+
+    @pytest.mark.parametrize(
+        "init_params",
+        [
+            {"use_sparse_embeddings": True},
+            {"use_sparse_embeddings": True, "sparse_idf": True},
+            {"similarity": "dot_product"},
+            {"similarity": "l2"},
+        ],
+    )
+    async def test_delete_all_documents_async_index_recreation_keeps_config(self, init_params):
+        document_store = QdrantDocumentStore(":memory:", embedding_dim=4, progress_bar=False, **init_params)
+        await document_store.write_documents_async([Document(content="doc", embedding=[0.1, 0.2, 0.3, 0.4])])
+        config_before = (await document_store._async_client.get_collection(document_store.index)).config
+
+        await document_store.delete_all_documents_async(recreate_index=True)
+
+        assert await document_store.count_documents_async() == 0
+        config_after = (await document_store._async_client.get_collection(document_store.index)).config
+        assert config_after == config_before
 
     async def test_sparse_configuration_async(self):
         document_store = QdrantDocumentStore(
